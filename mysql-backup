@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Config
+
+MYSQL_HOST="localhost"
+BACKUP_DIR_PROGRESS=/var/backup/dumps/migration/progress
+BACKUP_DIR_READY=/var/backup/dumps/migration/ready
+CREDENTIALS=/root/.my.cnf
+
+# Ende Config
+
+if [ ! -d "$BACKUP_DIR_PROGRESS" ]; then
+        mkdir -p $BACKUP_DIR_PROGRESS
+fi
+
+if [ ! -d "$BACKUP_DIR_READY" ]; then
+        mkdir -p $BACKUP_DIR_READY
+fi
+
+if [ ! -f $CREDENTIALS ]; then
+		echo "$CREDENTIALS not found, aborting!"
+		exit 1
+fi
+
+for db in $(mysql --defaults-file=$CREDENTIALS -e 'SHOW DATABASES;' -s -h $MYSQL_HOST)
+	do
+		if [ "${db}" = 'mysql' ]; then
+			continue
+		fi
+		if [ "${db}" = 'information_scheme' ]; then
+			continue
+		fi
+		echo "mysqldump --defaults-file=$CREDENTIALS --host=$MYSQL_HOST --add-drop-database --opt --single-transaction --databases ${db} | gzip -c > ${BACKUP_DIR_PROGRESS}/${db}.sql.gz"
+		mysqldump --defaults-file=$CREDENTIALS --host=$MYSQL_HOST --add-drop-database --opt --single-transaction --databases ${db} | gzip -c > ${BACKUP_DIR_PROGRESS}/${db}.sql.gz
+	mv ${BACKUP_DIR_PROGRESS}/${db}.sql.gz ${BACKUP_DIR_READY}/${db}.sql.gz
+done
+
+
+chmod -R 0600 $BACKUP_DIR_PROGRESS
+chmod -R 0600 $BACKUP_DIR_READY
