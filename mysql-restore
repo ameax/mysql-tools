@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Config
+MYSQL_HOST="localhost"
+RESTORE_DIR_READY=/var/restore/migration/ready
+READY_FILES=${RESTORE_DIR_READY}/*.sql.gz
+RESTORE_DIR_PROGRESS=/var/restore/migration/progress
+RESTORE_DIR_DONE=/var/restore/migration/done
+CREDENTIALS=/root/.my.cnf
+
+for i in $(seq 5); 
+do 
+	date
+
+	if [ ! -d "$RESTORE_DIR_READY" ]; then
+			mkdir -p $RESTORE_DIR_READY
+	fi
+
+	if [ ! -d "$RESTORE_DIR_PROGRESS" ]; then
+			mkdir -p $RESTORE_DIR_PROGRESS
+	fi
+
+	if [ ! -d "$RESTORE_DIR_DONE" ]; then
+			mkdir -p $RESTORE_DIR_DONE
+	fi
+
+	if [ ! -f $CREDENTIALS ]; then
+			echo "$CREDENTIALS not found, aborting!"
+			exit 1
+	fi
+
+	if stat --printf='' ${READY_FILES} 2>/dev/null
+	then
+		echo 'files found'
+	else
+		echo "no ready files"
+		continue
+	fi
+
+	for f in ${READY_FILES}; do 
+			file="$(basename $f)"
+			if [ -f ${RESTORE_DIR_DONE}/${file} ]; then
+				echo "$file already restored...skipping"
+				continue
+			fi
+			
+			mv $f ${RESTORE_DIR_PROGRESS}/${file}
+			echo "Restoring $file .."; 
+			gunzip -c ${RESTORE_DIR_PROGRESS}/${file} | mysql --defaults-file=$CREDENTIALS --host=$MYSQL_HOST
+			mv ${RESTORE_DIR_PROGRESS}/${file} ${RESTORE_DIR_DONE}/${file} 
+			echo "Done $file .."; 
+	done
+
+
+	sleep 1;
+done

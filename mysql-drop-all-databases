@@ -1,0 +1,10 @@
+#!/bin/bash
+
+read -p "Are you sure? Drop all databases?" -n 1 -r
+echo 		 #
+if [[ $REPLY =~ ^[YyJj]$ ]]
+then
+    mysql -uroot -e "show databases" | grep -v Database | grep -v mysql| grep -v information_schema | gawk '{print "SET FOREIGN_KEY_CHECKS = 0; echo "dropping $1";drop database " $1 ";select sleep(0.1);"}' | mysql -uroot
+fi
+
+ 
